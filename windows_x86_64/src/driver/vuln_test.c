@@ -1,24 +1,3 @@
-/*
-
-Copyright (C) 2017 Robert Gawlik
-
-This file is part of kAFL Fuzzer (kAFL).
-
-QEMU-PT is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or
-(at your option) any later version.
-
-QEMU-PT is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
-
-*/
-
 #include <windows.h>
 #include <stdio.h>
 #include <winternl.h>
@@ -27,14 +6,30 @@ along with QEMU-PT.  If not, see <http://www.gnu.org/licenses/>.
 
 
 #define ARRAY_SIZE 1024
+#define BUF_SIZE 0x10000
 
 #define INFO_SIZE                       (128 << 10)				/* 128KB info string */
 
 #define PAYLOAD_MAX_SIZE (128*1024)
 
-#define DEVICE_NAME         L"\\Device\\testKafl"
-#define IOCTL_KAFL_INPUT    (ULONG) CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_NEITHER, FILE_ANY_ACCESS)
-#define VULN_DRIVER_NAME "kAFLvulnerabledriver.sys"
+
+#define VULN_DRIVER_NAME "target.sys"
+#define VULN_DRIVER_NAME2 "target.sys"
+#define VULN_DRIVER_NAME3 "target.sys"
+
+#define IOCTL 0x4f494f49 // 'IOIO'
+#define WRITE 0x52575257 // 'WRITE'
+#define REVERT 0x45524552 // 'RERE'
+typedef unsigned int uint32_t;
+
+
+typedef struct __attribute__((__packed__)){
+        uint32_t function_code;
+        uint32_t IoControlCode;
+        uint32_t InBufferLength;
+        uint32_t OutBufferLength;
+        uint8_t InBuffer[PAYLOAD_MAX_SIZE-sizeof(uint32_t)*4];
+} kAFL_custom;
 
 
 PCSTR ntoskrnl = "C:\\Windows\\System32\\ntoskrnl.exe";
@@ -155,6 +150,7 @@ void set_ip_range() {
    DWORD cbNeeded;
    int cDrivers, i;
    NTSTATUS status;
+   int index =0;
 
    if( EnumDeviceDrivers(drivers, sizeof(drivers), &cbNeeded) && cbNeeded < sizeof(drivers))
    { 
@@ -181,21 +177,26 @@ void set_ip_range() {
         for (i=0; i < cDrivers; i++ ){
             pos += sprintf(info_buffer + pos, "0x%p\t0x%lld\t%s\n", drivers[i], ((UINT64)drivers[i]) + ModuleInfo->Modules[i].ImageSize, ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
             // hprintf("%s: driver FullPathName: %s\n", __func__, ModuleInfo->Modules[i].FullPathName);
-            if(strstr((const char*)ModuleInfo->Modules[i].FullPathName, VULN_DRIVER_NAME) > 0 ) {
+	    if(strstr((const char*)ModuleInfo->Modules[i].FullPathName, VULN_DRIVER_NAME) > 0 || 
+		strstr((const char*)ModuleInfo->Modules[i].FullPathName, VULN_DRIVER_NAME2) > 0 ||
+		strstr((const char*)ModuleInfo->Modules[i].FullPathName, VULN_DRIVER_NAME3) > 0
+		) {
                 uint64_t buffer[3];
                 buffer[0] = (UINT64)drivers[i];
                 buffer[1] = (UINT64)drivers[i] + ModuleInfo->Modules[i].ImageSize;
-                buffer[2] = 0;
+                buffer[2] = index++;
                 kAFL_hypercall(HYPERCALL_KAFL_RANGE_SUBMIT, (UINT64)buffer);
-                return;
+		hprintf("[+] SANGJUN : SET_IP_RANGE to %s\n",ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
             }
-            //_tprintf(TEXT("0x%p\t0x%p\t%s\n"), drivers[i], drivers[i]+ModuleInfo->Modules[i].ImageSize, ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
+            hprintf("0x%p\t0x%p\t%s\n", drivers[i], drivers[i]+ModuleInfo->Modules[i].ImageSize, ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
         }
    }
    else {
         hprintf("%s: EnumDeviceDrivers failed\n", __func__);
         goto fail;
    }
+   if(index >=1)
+	return;
     fail:
         habort("FAIL! NO MATCH!\n");
         exit(1);
@@ -214,13 +215,19 @@ void init_panic_handlers() {
 
 int main(int argc, char** argv)
 {
-    kAFL_payload* payload_buffer = (kAFL_payload*)VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
+    printf("[+] loader is executed\n");
+    kAFL_custom* payload_buffer = (kAFL_custom*)VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
     //LPVOID payload_buffer = (LPVOID)VirtualAlloc(0, PAYLOAD_SIZE, MEM_COMMIT, PAGE_READWRITE);
     memset(payload_buffer, 0x0, PAYLOAD_MAX_SIZE);
 
     /* open vulnerable driver */
+    
     HANDLE kafl_vuln_handle = NULL;
-    kafl_vuln_handle = CreateFile((LPCSTR)"\\\\.\\testKafl",
+
+    int count=0;
+    while(1)
+    {
+    kafl_vuln_handle = CreateFile((LPCSTR)"\\\\.\\TARGETDRIVER",
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -228,7 +235,11 @@ int main(int argc, char** argv)
         FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
         NULL
     );
+    count++;
+    if (kafl_vuln_handle != INVALID_HANDLE_VALUE)
+	    break;
 
+    }
     if (kafl_vuln_handle == INVALID_HANDLE_VALUE) {
         hprintf("[-] KAFL test: Cannot get device handle: 0x%X\n", GetLastError());
         habort("Cannot get device handle\n");
@@ -246,6 +257,27 @@ int main(int argc, char** argv)
 
     // Submit PT ranges
     set_ip_range();
+    char* outbuff = (CHAR*)malloc(0x10000);
+        DWORD dwRet = 0;
+
+    uint32_t *header = payload_buffer;
+    uint32_t function_code;
+    uint32_t IoControlCode;
+    uint32_t InBufferLength;
+    uint32_t OutBufferLength;
+    uint8_t *inbuffer;
+
+        char* input = (char*)VirtualAlloc(NULL, BUF_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    memset(input, 0x41, BUF_SIZE);
+
+    char* output = (char*)VirtualAlloc(NULL, BUF_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    memset(output, 0x42, BUF_SIZE);
+    DWORD dwreturn;
+
+
+
+    *((unsigned long*)input + 0) = (unsigned long)GetCurrentProcessId();
+    NTSTATUS res = DeviceIoControl(kafl_vuln_handle, 0x222664, input, 4, output, 0x2000, &dwreturn, 0);
 
     // Snapshot here
     kAFL_hypercall(HYPERCALL_KAFL_NEXT_PAYLOAD, 0);
@@ -253,17 +285,55 @@ int main(int argc, char** argv)
     /* request new payload (*blocking*) */
     kAFL_hypercall(HYPERCALL_KAFL_ACQUIRE, 0); 
 
-    /* kernel fuzzing */
-    DeviceIoControl(kafl_vuln_handle,
-        IOCTL_KAFL_INPUT,
-        (LPVOID)(payload_buffer->data),
-        (DWORD)payload_buffer->size,
-        NULL,
-        0,
-        NULL,
-        NULL
-    );
 
+       	for(;;)
+	{
+
+		if(header[0] != IOCTL)
+		{
+			/*function_code = header[0];
+
+			IoControlCode = header[1];
+			InBufferLength = header[2];
+			OutBufferLength = header[3];
+			inbuffer = header+4;
+			hprintf("command %x controlcode %x InBufferLength %x utBufferLength %x inbuffer %c",
+					function_code,
+					IoControlCode,
+					InBufferLength,
+					OutBufferLength,
+					*inbuffer
+			       );
+			hprintf("[-] bye");
+			*/
+			break;
+		}
+			function_code = header[0];
+			IoControlCode = header[1];
+			InBufferLength = header[2];
+			OutBufferLength = header[3];
+			inbuffer = header+4;
+
+
+
+		    if(function_code == IOCTL)
+		    {
+	                DeviceIoControl(kafl_vuln_handle,
+                    IoControlCode,
+                    (LPVOID)inbuffer,
+                    InBufferLength,
+                    outbuff,
+                    OutBufferLength,
+                    NULL,
+                    NULL
+
+                    );
+//			hprintf("[+] hello %x\n",IoControlCode);
+		    }
+		    header = inbuffer + InBufferLength;
+
+
+	}
     /* inform fuzzer about finished fuzzing iteration */
     // Will reset back to start of snapshot here
     kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
