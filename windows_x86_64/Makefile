@@ -5,13 +5,23 @@ ROOT_DIR := $(CUR_DIR)/../
 
 $(ROOT_DIR)/venv/bin/ansible-playbook:
 	python3 -m venv $(ROOT_DIR)/venv
-	$(ROOT_DIR)/venv/bin/python -m pip install ansible==7.1.0 pywinrm
+	$(ROOT_DIR)/venv/bin/python -m pip install ansible==6.7.0 pywinrm
 
 ansible: $(ROOT_DIR)/venv/bin/ansible-playbook
 
 init:
-	vagrant up --no-provision
-	vagrant snapshot save 'ready_provision'
+	vagrant up --no-provision --debug 
+	vagrant snapshot save --force 'ready_provision'
+	
+snapshot:
+	vagrant up --no-provision --debug
+	vagrant snapshot save --force 'extra'
+revoke:
+	vagrant up --no-provision --debug
+	vagrant snapshot restore 'extra'
+gui:
+	vagrant up --no-provision --debug
+	virt-viewer -a -c qemu:///session vagrant-kafl-windows
 
 compile:
 	mkdir -p bin/{userspace,driver}

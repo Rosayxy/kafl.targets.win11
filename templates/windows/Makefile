@@ -5,7 +5,7 @@ ROOT_DIR := $(CUR_DIR)/../..
 
 $(ROOT_DIR)/venv/bin/ansible-playbook:
 	python3 -m venv $(ROOT_DIR)/venv
-	$(ROOT_DIR)/venv/bin/python -m pip install ansible==7.1.0 pywinrm
+	$(ROOT_DIR)/venv/bin/python -m pip install ansible==6.7.0 pywinrm
 
 ansible: $(ROOT_DIR)/venv/bin/ansible-playbook
 
@@ -15,4 +15,4 @@ build: ansible
 
 import:
 	vagrant box remove kafl_windows || true
-	vagrant box add packer_windows_libvirt.box --name kafl_windows
+	vagrant box add packer_windows_libvirt_amd64.box --name kafl_windows

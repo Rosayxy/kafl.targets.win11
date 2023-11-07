@@ -71,46 +71,46 @@
         type: dword
         state: present
 
-    - name: Download Visual Studio 2022 community installer
-      win_get_url:
-        url: https://aka.ms/vs/17/release/vs_Community.exe
-        dest: "{{ ansible_facts['env']['TEMP'] }}\\vs_community.exe"
+    # - name: Download Visual Studio 2022 community installer
+    #   win_get_url:
+    #     url: https://aka.ms/vs/17/release/vs_Community.exe
+    #     dest: "{{ ansible_facts['env']['TEMP'] }}\\vs_community.exe"
 
-    # https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-community?view=vs-2022&preserve-view=true
-    - name: Install Visual Studio community and compiler
-      win_command:
-        # cmd: vs_community.exe --quiet --wait --norestart --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22000
-        cmd: vs_community.exe --quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64
-      args:
-        chdir: "{{ ansible_facts['env']['TEMP'] }}"
+    # # https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-community?view=vs-2022&preserve-view=true
+    # - name: Install Visual Studio community and compiler
+    #   win_command:
+    #     # cmd: vs_community.exe --quiet --wait --norestart --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22000
+    #     cmd: vs_community.exe --quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64
+    #   args:
+    #     chdir: "{{ ansible_facts['env']['TEMP'] }}"
 
-    - name: Download latest SDK
-      win_get_url:
-        url: https://go.microsoft.com/fwlink/?linkid=2237387
-        dest: "{{ ansible_facts['env']['TEMP'] }}\\sdk_setup.exe"
+    # - name: Download latest SDK
+    #   win_get_url:
+    #     url: https://go.microsoft.com/fwlink/?linkid=2237387
+    #     dest: "{{ ansible_facts['env']['TEMP'] }}\\sdk_setup.exe"
 
-    - name: Install latest SDK
-      win_command:
-        cmd: sdk_setup.exe /q /norestart
-      args:
-        chdir: "{{ ansible_facts['env']['TEMP'] }}"
+    # - name: Install latest SDK
+    #   win_command:
+    #     cmd: sdk_setup.exe /q /norestart
+    #   args:
+    #     chdir: "{{ ansible_facts['env']['TEMP'] }}"
 
-    - name: Download latest WDK
-      win_get_url:
-        url: https://go.microsoft.com/fwlink/?linkid=2196230
-        dest: "{{ ansible_facts['env']['TEMP'] }}\\wdk_setup.exe"
+    # - name: Download latest WDK
+    #   win_get_url:
+    #     url: https://go.microsoft.com/fwlink/?linkid=2196230
+    #     dest: "{{ ansible_facts['env']['TEMP'] }}\\wdk_setup.exe"
 
-    - name: Install WDK
-      win_command:
-        cmd: wdk_setup.exe /q /norestart
-      args:
-        chdir: "{{ ansible_facts['env']['TEMP'] }}"
+    # - name: Install WDK
+    #   win_command:
+    #     cmd: wdk_setup.exe /q /norestart
+    #   args:
+    #     chdir: "{{ ansible_facts['env']['TEMP'] }}"
 
-    - name: install WDK VSIX extension
-      win_command:
-        cmd: "{{ vsix_installer | ansible.windows.quote }} /quiet /admin /logFile:C:\\wdk_vsix.log WDK.vsix"
-      args:
-        chdir: "{{ wdk_vsix_dir }}"
+    # - name: install WDK VSIX extension
+    #   win_command:
+    #     cmd: "{{ vsix_installer | ansible.windows.quote }} /quiet /admin /logFile:C:\\wdk_vsix.log WDK.vsix"
+    #   args:
+    #     chdir: "{{ wdk_vsix_dir }}"
 
     - name: Enable Testsigning
       win_command: Bcdedit.exe -set TESTSIGNING ON
