@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 
     init_agent_handshake();
 
-    init_panic_handlers();
+    //init_panic_handlers();
 
     /* this hypercall submits the current CR3 value */ 
     kAFL_hypercall(HYPERCALL_KAFL_SUBMIT_CR3, 0);
