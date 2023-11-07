@@ -28,12 +28,22 @@ compile:
 	x86_64-w64-mingw32-gcc src/userspace/selffuzz_test.c -I ../ -o bin/userspace/selffuzz_test.exe -Wall -mwindows 
 	x86_64-w64-mingw32-gcc src/driver/vuln_test.c -I ../ -o bin/driver/vuln_test.exe -Wall -lntdll -lpsapi
 
-provision_userspace: compile ansible
-	vagrant snapshot restore 'ready_provision'
-	TARGET_HARNESS='userspace' vagrant provision
-	vagrant halt
+#provision_userspace: compile ansible
+#	vagrant snapshot restore 'ready_provision'
+#	TARGET_HARNESS='userspace' vagrant provision
+#	vagrant halt
 
-provision_driver: compile ansible
-	vagrant snapshot restore 'ready_provision'
-	TARGET_HARNESS='driver' vagrant provision
-	vagrant halt
+#provision_driver: compile ansible
+#	vagrant snapshot restore 'ready_provision'
+#	TARGET_HARNESS='driver' vagrant provision
+#	vagrant halt
+
+target: compile ansible
+	vagrant up --no-provision --debug
+	TARGET_HARNESS='provision_target' vagrant provision
+	virt-viewer -a -c qemu:///session vagrant-kafl-windows
+
+
+no_target: compile ansible
+	vagrant up --no-provision --debug
+	vagrant provision
