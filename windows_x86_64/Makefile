@@ -10,17 +10,13 @@ $(ROOT_DIR)/venv/bin/ansible-playbook:
 ansible: $(ROOT_DIR)/venv/bin/ansible-playbook
 
 init:
-	vagrant up --no-provision --debug 
+	vagrant up --no-provision 
 	vagrant snapshot save --force 'ready_provision'
 	
-snapshot:
-	vagrant up --no-provision --debug
-	vagrant snapshot save --force 'extra'
 revoke:
-	vagrant up --no-provision --debug
-	vagrant snapshot restore 'extra'
+	vagrant snapshot restore 'ready_provision'
 gui:
-	vagrant up --no-provision --debug
+	vagrant up --no-provision
 	virt-viewer -a -c qemu:///session vagrant-kafl-windows
 
 compile:
@@ -28,20 +24,10 @@ compile:
 	x86_64-w64-mingw32-gcc src/userspace/selffuzz_test.c -I ../ -o bin/userspace/selffuzz_test.exe -Wall -mwindows 
 	x86_64-w64-mingw32-gcc src/driver/vuln_test.c -I ../ -o bin/driver/vuln_test.exe -Wall -lntdll -lpsapi
 
-#provision_userspace: compile ansible
-#	vagrant snapshot restore 'ready_provision'
-#	TARGET_HARNESS='userspace' vagrant provision
-#	vagrant halt
-
-#provision_driver: compile ansible
-#	vagrant snapshot restore 'ready_provision'
-#	TARGET_HARNESS='driver' vagrant provision
-#	vagrant halt
-
 target: compile ansible
-	vagrant up --no-provision --debug
+	vagrant up --no-provision
 	TARGET_HARNESS='provision_target' vagrant provision
-	virt-viewer -a -c qemu:///session vagrant-kafl-windows
+	vagrant halt
 
 
 no_target: compile ansible
