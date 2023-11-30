@@ -267,18 +267,6 @@ int main(int argc, char** argv)
     uint32_t OutBufferLength;
     uint8_t *inbuffer;
 
-        char* input = (char*)VirtualAlloc(NULL, BUF_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    memset(input, 0x41, BUF_SIZE);
-
-    char* output = (char*)VirtualAlloc(NULL, BUF_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    memset(output, 0x42, BUF_SIZE);
-    DWORD dwreturn;
-
-
-
-    *((unsigned long*)input + 0) = (unsigned long)GetCurrentProcessId();
-    NTSTATUS res = DeviceIoControl(kafl_vuln_handle, 0x222664, input, 4, output, 0x2000, &dwreturn, 0);
-
     // Snapshot here
     kAFL_hypercall(HYPERCALL_KAFL_NEXT_PAYLOAD, 0);
 
