@@ -215,7 +215,7 @@ void init_panic_handlers() {
 
 int main(int argc, char** argv)
 {
-    printf("[+] loader is executed\n");
+    hprintf("[+] loader is executed\n");
     kAFL_custom* payload_buffer = (kAFL_custom*)VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
     //LPVOID payload_buffer = (LPVOID)VirtualAlloc(0, PAYLOAD_SIZE, MEM_COMMIT, PAGE_READWRITE);
     memset(payload_buffer, 0x0, PAYLOAD_MAX_SIZE);
