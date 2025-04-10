@@ -186,7 +186,7 @@ void set_ip_range() {
                 buffer[1] = (UINT64)drivers[i] + ModuleInfo->Modules[i].ImageSize;
                 buffer[2] = index++;
                 kAFL_hypercall(HYPERCALL_KAFL_RANGE_SUBMIT, (UINT64)buffer);
-		hprintf("[+] SANGJUN : SET_IP_RANGE to %s\n",ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
+		hprintf("[+] msFuzz : SET_IP_RANGE to %s\n",ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
             }
             hprintf("0x%p\t0x%p\t%s\n", drivers[i], drivers[i]+ModuleInfo->Modules[i].ImageSize, ModuleInfo->Modules[i].FullPathName+ModuleInfo->Modules[i].OffsetToFileName);
         }
