@@ -4,7 +4,9 @@
 #include "nyx_api.h"
 #include <psapi.h>
 
-
+#define LOG_UPDATE_FREQ      5000
+#define MAX_ATTEMPT          200000
+#define MAX_IRP_COUNT        500
 #define ARRAY_SIZE 1024
 #define BUF_SIZE 0x10000
 
@@ -215,35 +217,49 @@ void init_panic_handlers() {
 
 int main(int argc, char** argv)
 {
-    hprintf("[+] loader is executed\n");
+    hprintf("[+] msFuzz: loader is executed\n");
     kAFL_custom* payload_buffer = (kAFL_custom*)VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
-    //LPVOID payload_buffer = (LPVOID)VirtualAlloc(0, PAYLOAD_SIZE, MEM_COMMIT, PAGE_READWRITE);
+    
     memset(payload_buffer, 0x0, PAYLOAD_MAX_SIZE);
 
     /* open vulnerable driver */
     
     HANDLE kafl_vuln_handle = NULL;
-
+    int i;
     int count=0;
     while(1)
     {
-    kafl_vuln_handle = CreateFile((LPCSTR)"\\\\.\\TARGETDRIVER",
-        GENERIC_READ | GENERIC_WRITE,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
-        NULL,
-        OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-        NULL
-    );
-    count++;
-    if (kafl_vuln_handle != INVALID_HANDLE_VALUE)
-	    break;
+        kafl_vuln_handle = CreateFile((LPCSTR)"\\\\.\\TARGETDRIVER",
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+            NULL
+        );
 
+        count++;
+        
+        if (kafl_vuln_handle != INVALID_HANDLE_VALUE)
+            break;
+
+        if (count % LOG_UPDATE_FREQ == 0) 
+            hprintf("[-] CreateFile failed: Attempt #%d, Error code: 0x%X\n", count, GetLastError());
+        
+        if (count > MAX_ATTEMPT) {
+            hprintf("[-] Too many retries. Aborting...\n");
+            habort("Exceeded max retry count\n");
+        }
+            
     }
+
     if (kafl_vuln_handle == INVALID_HANDLE_VALUE) {
         hprintf("[-] KAFL test: Cannot get device handle: 0x%X\n", GetLastError());
         habort("Cannot get device handle\n");
+    } else {
+        hprintf("[+] msFuzz: Entering fuzzing loop\n");
     }
+
 
     init_agent_handshake();
 
@@ -274,51 +290,27 @@ int main(int argc, char** argv)
     kAFL_hypercall(HYPERCALL_KAFL_ACQUIRE, 0); 
 
 
-       	for(;;)
+    for(i=0; i< MAX_IRP_COUNT; i++)
 	{
+        function_code = header[0];
+        IoControlCode = header[1];
+        InBufferLength = header[2];
+        OutBufferLength = header[3];
+        inbuffer = header+4;
 
-		if(header[0] != IOCTL)
-		{
-			/*function_code = header[0];
+		if(function_code != IOCTL)
+			break; // End of IRP sequence
 
-			IoControlCode = header[1];
-			InBufferLength = header[2];
-			OutBufferLength = header[3];
-			inbuffer = header+4;
-			hprintf("command %x controlcode %x InBufferLength %x utBufferLength %x inbuffer %c",
-					function_code,
-					IoControlCode,
-					InBufferLength,
-					OutBufferLength,
-					*inbuffer
-			       );
-			hprintf("[-] bye");
-			*/
-			break;
-		}
-			function_code = header[0];
-			IoControlCode = header[1];
-			InBufferLength = header[2];
-			OutBufferLength = header[3];
-			inbuffer = header+4;
-
-
-
-		    if(function_code == IOCTL)
-		    {
-	                DeviceIoControl(kafl_vuln_handle,
-                    IoControlCode,
-                    (LPVOID)inbuffer,
-                    InBufferLength,
-                    outbuff,
-                    OutBufferLength,
-                    NULL,
-                    NULL
-
+        DeviceIoControl(kafl_vuln_handle,
+                        IoControlCode,
+                        (LPVOID)inbuffer,
+                        InBufferLength,
+                        outbuff,
+                        OutBufferLength,
+                        NULL,
+                        NULL
                     );
-//			hprintf("[+] hello %x\n",IoControlCode);
-		    }
-		    header = inbuffer + InBufferLength;
+		header = inbuffer + InBufferLength;
 
 
 	}
