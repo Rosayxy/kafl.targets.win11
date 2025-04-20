@@ -82,45 +82,45 @@ void init_agent_handshake() {
     hprintf("Initiate fuzzer handshake...\n");
 
     kAFL_hypercall(HYPERCALL_KAFL_ACQUIRE, 0);
-	kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
+    kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
 
     // Submit our CR3
     kAFL_hypercall(HYPERCALL_KAFL_SUBMIT_CR3, 0);
 
     // Tell KAFL we're running in 64bit mode
-	kAFL_hypercall(HYPERCALL_KAFL_USER_SUBMIT_MODE, KAFL_MODE_64);
+    kAFL_hypercall(HYPERCALL_KAFL_USER_SUBMIT_MODE, KAFL_MODE_64);
 
     /* Request information on available (host) capabilites (not optional) */
-	volatile host_config_t host_config;
-	kAFL_hypercall(HYPERCALL_KAFL_GET_HOST_CONFIG, (uintptr_t)&host_config);
-	if (host_config.host_magic != NYX_HOST_MAGIC ||
-	    host_config.host_version != NYX_HOST_VERSION) {
-		hprintf("host_config magic/version mismatch!\n");
-		habort("GET_HOST_CNOFIG magic/version mismatch!\n");
-	}
-	hprintf("\thost_config.bitmap_size: 0x%lx\n", host_config.bitmap_size);
-	hprintf("\thost_config.ijon_bitmap_size: 0x%lx\n", host_config.ijon_bitmap_size);
-	hprintf("\thost_config.payload_buffer_size: 0x%lx\n", host_config.payload_buffer_size);
+    volatile host_config_t host_config;
+    kAFL_hypercall(HYPERCALL_KAFL_GET_HOST_CONFIG, (uintptr_t)&host_config);
+    if (host_config.host_magic != NYX_HOST_MAGIC ||
+        host_config.host_version != NYX_HOST_VERSION) {
+	hprintf("host_config magic/version mismatch!\n");
+	habort("GET_HOST_CNOFIG magic/version mismatch!\n");
+    }
+
+    hprintf("\thost_config.bitmap_size: 0x%lx\n", host_config.bitmap_size);
+    hprintf("\thost_config.ijon_bitmap_size: 0x%lx\n", host_config.ijon_bitmap_size);
+    hprintf("\thost_config.payload_buffer_size: 0x%lx\n", host_config.payload_buffer_size);
 
     /* reserved guest memory must be at least as large as host SHM view */
-	if (PAYLOAD_MAX_SIZE < host_config.payload_buffer_size) {
-		habort("Insufficient guest payload buffer!\n");
-	}
+    if (PAYLOAD_MAX_SIZE < host_config.payload_buffer_size) {
+        habort("Insufficient guest payload buffer!\n");
+    }
 
     /* submit agent configuration */
-	volatile agent_config_t agent_config = {0};
-	agent_config.agent_magic = NYX_AGENT_MAGIC;
-	agent_config.agent_version = NYX_AGENT_VERSION;
+    volatile agent_config_t agent_config = {0};
+    agent_config.agent_magic = NYX_AGENT_MAGIC;
+    agent_config.agent_version = NYX_AGENT_VERSION;
 
-	agent_config.agent_tracing = 0; // trace by host!
-	agent_config.agent_ijon_tracing = 0; // no IJON
-	agent_config.agent_non_reload_mode = 1; // allow persistent
-	agent_config.coverage_bitmap_size = host_config.bitmap_size;
+    agent_config.agent_tracing = 0; // trace by host!
+    agent_config.agent_ijon_tracing = 0; // no IJON
+    agent_config.agent_non_reload_mode = 1; // allow persistent
+    agent_config.coverage_bitmap_size = host_config.bitmap_size;
 
-	kAFL_hypercall(HYPERCALL_KAFL_SET_AGENT_CONFIG, (uintptr_t)&agent_config);
+    kAFL_hypercall(HYPERCALL_KAFL_SET_AGENT_CONFIG, (uintptr_t)&agent_config);
 
 }
-
 
 typedef struct _RTL_PROCESS_MODULE_INFORMATION
 {
@@ -155,7 +155,7 @@ void set_ip_range() {
    int index =0;
 
    if( EnumDeviceDrivers(drivers, sizeof(drivers), &cbNeeded) && cbNeeded < sizeof(drivers))
-   { 
+   {
         cDrivers = cbNeeded / sizeof(drivers[0]);
         PRTL_PROCESS_MODULES ModuleInfo;
  
@@ -219,11 +219,11 @@ int main(int argc, char** argv)
 {
     hprintf("[+] msFuzz: loader is executed\n");
     kAFL_custom* payload_buffer = (kAFL_custom*)VirtualAlloc(0, PAYLOAD_MAX_SIZE, MEM_COMMIT, PAGE_READWRITE);
-    
+
     memset(payload_buffer, 0x0, PAYLOAD_MAX_SIZE);
 
     /* open vulnerable driver */
-    
+
     HANDLE kafl_vuln_handle = NULL;
     int i;
     int count=0;
@@ -239,18 +239,18 @@ int main(int argc, char** argv)
         );
 
         count++;
-        
+
         if (kafl_vuln_handle != INVALID_HANDLE_VALUE)
             break;
 
-        if (count % LOG_UPDATE_FREQ == 0) 
+        if (count % LOG_UPDATE_FREQ == 0)
             hprintf("[-] CreateFile failed: Attempt #%d, Error code: 0x%X\n", count, GetLastError());
-        
+
         if (count > MAX_ATTEMPT) {
             hprintf("[-] Too many retries. Aborting...\n");
             habort("Exceeded max retry count\n");
         }
-            
+
     }
 
     if (kafl_vuln_handle == INVALID_HANDLE_VALUE) {
@@ -274,7 +274,7 @@ int main(int argc, char** argv)
     // Submit PT ranges
     set_ip_range();
     char* outbuff = (CHAR*)malloc(0x10000);
-        DWORD dwRet = 0;
+    DWORD dwRet = 0;
 
     uint32_t *header = payload_buffer;
     uint32_t function_code;
@@ -291,29 +291,29 @@ int main(int argc, char** argv)
 
 
     for(i=0; i< MAX_IRP_COUNT; i++)
-	{
+    {
         function_code = header[0];
         IoControlCode = header[1];
         InBufferLength = header[2];
         OutBufferLength = header[3];
         inbuffer = header+4;
 
-		if(function_code != IOCTL)
-			break; // End of IRP sequence
+	if(function_code != IOCTL)
+	    break; // End of IRP sequence
 
         DeviceIoControl(kafl_vuln_handle,
-                        IoControlCode,
-                        (LPVOID)inbuffer,
-                        InBufferLength,
-                        outbuff,
-                        OutBufferLength,
-                        NULL,
-                        NULL
-                    );
-		header = inbuffer + InBufferLength;
+            IoControlCode,
+            (LPVOID)inbuffer,
+            InBufferLength,
+            outbuff,
+            OutBufferLength,
+            NULL,
+            NULL
+        );
 
+	header = inbuffer + InBufferLength;
 
-	}
+    }
     /* inform fuzzer about finished fuzzing iteration */
     // Will reset back to start of snapshot here
     kAFL_hypercall(HYPERCALL_KAFL_RELEASE, 0);
