@@ -3,6 +3,11 @@
   vars:
     vsix_installer: "{{ ansible_env['ProgramFiles'] }}\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\VSIXInstaller.exe"
     wdk_vsix_dir: "{{ ansible_env['ProgramFiles(x86)'] }}\\Windows Kits\\10\\Vsix\\VS2022\\10.0.22621.0"
+    vcvars_path: "{{ ansible_env['ProgramFiles'] }}\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat"
+    dest_path: "{{ ansible_env.USERPROFILE }}\\Desktop"
+    wdk_include_km_path: "C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.17763.0\\km"
+    wdk_lib_path: "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.17763.0\\km\\x64"
+    ntoskrnllib_path: "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.17763.0\\km\\x64\\ntoskrnl.lib"
   tasks:
     # This should be set before running the win_inet_proxy module
     - name: Configure IE proxy settings to apply to all users
@@ -114,3 +119,28 @@
 
     - name: Enable Testsigning
       win_command: Bcdedit.exe -set TESTSIGNING ON
+
+    - name: Upload binaries
+      win_copy:
+        src: bin
+        dest: "{{ dest_path }}"
+
+    - name: Set service to start Call Stack Dump.sys at boot
+      win_command: "sc create hook binPath= {{ dest_path + '/bin/driver/Harness_for_nyx.sys' | ansible.windows.quote }} type= kernel start= auto"
+      register: result
+      failed_when:
+        - result.rc != 0
+        - result.rc != 1073 # service already exists
+
+    - name: Set service to start vuln_test to trigger the driver
+      win_service:
+        name: vuln_driver_trigger
+        path: "{{ dest_path }}\\bin\\driver\\vuln_test.exe"
+        start_mode: auto
+
+    # - name: Set service to Vuln Target
+    #   win_command: "sc create target binPath= {{ dest_path + '/bin/driver/target.sys' | ansible.windows.quote }} type= kernel start= auto"
+    #   register: result_target
+    #   failed_when:
+    #     - result_target.rc != 0
+    #     - result_target.rc != 1073 # service already exists

@@ -66,7 +66,7 @@ variable "iso_url" {
 
 variable "memory" {
   type    = string
-  default = "4096"
+  default = "8192"
 }
 
 variable "vm_name" {
@@ -114,7 +114,13 @@ source "qemu" "windows" {
   memory           = "${var.memory}"
   qemuargs         = [
     ["-usb"],
-    ["-device", "usb-tablet"]
+    ["-device", "usb-tablet"],
+    ["-drive", "if=pflash,format=raw,unit=0,file=/home/mimi/tmp2/kAFL/code.img" ],
+    ["-drive", "if=pflash,format=raw,unit=1,file=/home/mimi/tmp2/kAFL/efivars.img" ],
+    ["-drive", "file=/home/mimi/.cache/packer/c7a6dd5c537a710fa9be2731dfec58b7361557e0.iso,media=cdrom,if=none,id=cd0"],
+    ["-device", "ide-cd,drive=cd0"],
+    ["-cpu", "host"],
+    ["-drive", "file=/home/mimi/tmp2/kAFL/kafl/examples/templates/windows/output-windows_1/${var.vm_name}.qcow2,if=ide,cache=writeback,discard=ignore,format=qcow2"]
   ]
   net_device       = "rtl8139"
   shutdown_command = "shutdown /s /t 10 /f /d p:4:1 /c \"Packer Shutdown\""
@@ -144,6 +150,14 @@ build {
       "-e", "ansible_winrm_scheme=http",
       "-e", "ansible_proxy=${var.https_proxy}",
       "-v"
+    ]
+  }
+  post-processor "shell-local" {
+    inline = [
+      "rm -rf /home/mimi/tmp2/kAFL/kafl/examples/templates/windows/output-windows",
+      "mkdir /home/mimi/tmp2/kAFL/kafl/examples/templates/windows/output-windows",
+      "cp /home/mimi/tmp2/kAFL/kafl/examples/templates/windows/output-windows_1/win10.qcow2 /home/mimi/tmp2/kAFL/kafl/examples/templates/windows/output-windows",
+      "echo ",
     ]
   }
   post-processor "vagrant" {
