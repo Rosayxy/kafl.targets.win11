@@ -1,5 +1,5 @@
 # null qemu_append
 qemu_append: ''
 qemu_memory: 4096
-qemu_image: '@format {env[HOME]}/.local/share/libvirt/images/windows_x86_64_vagrant-kafl-windows.img'
-qemu_extra: '-monitor unix:/tmp/monitor.sock,server,nowait'
+qemu_image: '/home/mimi/tmp2/kAFL/kafl/examples/templates/windows/output-windows_1/win10.qcow2' # TODO take a look at this!
+qemu_extra: '-monitor unix:/tmp/monitor.sock,server,nowait -drive if=pflash,format=raw,unit=0,file=/home/mimi/tmp2/kAFL/code.img -drive if=pflash,format=raw,unit=1,file=/home/mimi/tmp2/kAFL/efivars.img -drive file=/home/mimi/.cache/packer/c7a6dd5c537a710fa9be2731dfec58b7361557e0.iso,media=cdrom,if=none,id=cd0'
